@@ -6,7 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using KaijuSolutions.Agents;
-using UnityEngine.AI;
+using KaijuSolutions.Agents.Movement;
+// using UnityEngine.AI;
 using TMPro;
 
 public class LLMBridge : MonoBehaviour
@@ -22,8 +23,8 @@ public class LLMBridge : MonoBehaviour
 
     [Header("Game Objects")]
     // reference to ghost
-    public NavMeshAgent ghostAgent;
-    
+    public KaijuAgent ghostAgent;
+
     // This is the specific function our physical button will press
     public void OnSendButtonClicked()
     {
@@ -33,26 +34,19 @@ public class LLMBridge : MonoBehaviour
             chatInput.text = "";           // Clear the text box so it's ready for the next command
         }
     }
-    
+
     void Awake()
     {
         apiKey = APIKeys.GeminiKey;
     }
-    
+
     // Prompt forces AI to output JSON
     private string systemPrompt = "You are a ghost in a haunted house. " +
                                   "The available rooms are: Kitchen, Library, and Hallway. " +
-                                  "You must respond ONLY with a JSON object in this exact format: {\"room\": \"RoomName\"}. " +
+                                  "You can also choose a goal: 'ScarePlayer' or 'HideInKitchen'. " +
+                                  "You must respond ONLY with a JSON object in this exact format: {\"room\": \"RoomName\", \"goal\": \"GoalName\"}. " +
                                   "User command: ";
-        
-    // Start() runs automatically when you hit Play in Unity
-    void Start()
-    {
-        // Debug.Log("🚀 Sending test request to Gemini...");
-        // // Hardcode a test question here
-        // RequestAction("What is the best thing about C#?"); 
-    }
-        
+
     // This is the function the UI Button calls
     public void RequestAction(string userInput)
     {
@@ -80,19 +74,20 @@ public class LLMBridge : MonoBehaviour
             }
         });
     }
+
     IEnumerator SendRequest(string userInput, string targetModel, Action<bool, string> callback)
     {
         string url = $"https://generativelanguage.googleapis.com/v1beta/models/{targetModel}:generateContent?key={apiKey.Trim()}";
         string combinedPrompt = systemPrompt + userInput;
-        
+
         string escapedPrompt = combinedPrompt
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"")
             .Replace("\n", "\\n")
             .Replace("\r", "\\r");
-            
+
         string jsonPayload = "{\"contents\": [{\"parts\":[{\"text\":\"" + escapedPrompt + "\"}]}]}";
-        
+
         using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
         {
             byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
@@ -118,7 +113,8 @@ public class LLMBridge : MonoBehaviour
             }
         }
     }
-    
+
+
     // The parser: extracts JSON and triggers game logic
     void ProcessResponse(string rawResponse)
     {
@@ -136,8 +132,13 @@ public class LLMBridge : MonoBehaviour
             // Parse the AI's JSON into  GhostCommand 
             GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(aiText);
             
-            // If it parsed successfully and the room isn't empty, trigger the Ghost!
-            if (cmd != null && !string.IsNullOrEmpty(cmd.room))
+            // Handle GOAP goals if present
+            if (cmd != null && !string.IsNullOrEmpty(cmd.goal))
+            {
+                OnLLMResponse(aiText);
+            }
+            // Fallback to direct movement if goal is missing but room is present
+            else if (cmd != null && !string.IsNullOrEmpty(cmd.room))
             {
                 MoveGhost(cmd.room);
             }
@@ -147,23 +148,66 @@ public class LLMBridge : MonoBehaviour
             Debug.LogError("Failed to parse Gemini response.");
         }
     }
+
+    public void OnLLMResponse(string intentJSON)
+    {
+        GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(intentJSON);
+        Dictionary<string, bool> desiredGoal = new Dictionary<string, bool>();
+
+        if (cmd.goal.Contains("ScarePlayer"))
+        {
+            desiredGoal.Add("PlayerScared", true);
+        }
+        else if (cmd.goal.Contains("HideInKitchen"))
+        {
+            desiredGoal.Add("InKitchen", true);
+            desiredGoal.Add("IsHidden", true);
+        }
+
+        if (desiredGoal.Count > 0 && ghostAgent != null)
+        {
+            GOAP ghostAI = ghostAgent.GetComponent<GOAP>();
+            if (ghostAI != null)
+            {
+                ghostAI.RequestPlan(desiredGoal);
+            }
+            else
+            {
+                Debug.LogError("GOAP component not found on ghostAgent!");
+            }
+        }
+        else if (!string.IsNullOrEmpty(cmd.room))
+        {
+            // If no recognized goal, just move to the room
+            MoveGhost(cmd.room);
+        }
+    }
     
     // The game logic
     void MoveGhost(string targetRoom)
     {
         Debug.Log("COMMAND RECEIVED: Move to " + targetRoom);
         
-        // Find the marker gameobject
-        GameObject waypoint = GameObject.Find("POI_" + targetRoom);
-        
-        if (waypoint != null)
+        if (ghostAgent != null)
         {
-            // Tell the NavMeshAgent to walk to the coordinates
-            ghostAgent.SetDestination(waypoint.transform.position);
-        }
-        else
-        {
-            Debug.LogWarning("Could not find a GameObject named POI_" + targetRoom + " in the scene!");
+            GOAP ghostAI = ghostAgent.GetComponent<GOAP>();
+            if (ghostAI != null)
+            {
+                // Request a plan to be in the target room
+                Dictionary<string, bool> goal = new Dictionary<string, bool> { { "In" + targetRoom, true } };
+                ghostAI.RequestPlan(goal);
+            }
+            else
+            {
+                Debug.LogError("GOAP component not found on ghostAgent!");
+                
+                // Fallback to direct movement if GOAP is missing
+                GameObject waypoint = GameObject.Find("POI_" + targetRoom);
+                if (waypoint != null)
+                {
+                    ghostAgent.PathFollow(waypoint.transform.position);
+                }
+            }
         }
     }
 }
@@ -173,6 +217,7 @@ public class LLMBridge : MonoBehaviour
 public class GhostCommand
 {
     public string room;
+    public string goal;
 }
 [Serializable]
 public class GeminiResponse
