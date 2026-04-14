@@ -183,6 +183,14 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 2089680638}
+    - targetCorrespondingSourceObject: {fileID: 100006, guid: 563ac48ff656d49478fd93213f4c0eb8,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2089680642}
+    - targetCorrespondingSourceObject: {fileID: 100006, guid: 563ac48ff656d49478fd93213f4c0eb8,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2089680641}
   m_SourcePrefab: {fileID: 100100000, guid: 563ac48ff656d49478fd93213f4c0eb8, type: 3}
 --- !u!1 &55642009
 GameObject:
@@ -363,7 +371,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LLMBridge
   apiKey: 
   chatInput: {fileID: 1442976657}
-  ghostAgent: {fileID: 2089680637}
+  ghostAgent: {fileID: 2089680638}
 --- !u!1 &152760758
 GameObject:
   m_ObjectHideFlags: 0
@@ -1710,9 +1718,9 @@ NavMeshAgent:
   m_AgentTypeID: 0
   m_Radius: 0.5
   m_Speed: 10
-  m_Acceleration: 3.4028235e+38
+  m_Acceleration: 8
   avoidancePriority: 50
-  m_AngularSpeed: 0
+  m_AngularSpeed: 5
   m_StoppingDistance: 0
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
@@ -1734,13 +1742,52 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: ca.kaijusolutions.agents::KaijuSolutions.Agents.KaijuNavigationAgent
   moveSpeed: 10
-  moveAcceleration: 0
-  lookSpeed: 0
+  moveAcceleration: 8
+  lookSpeed: 5
   autoRotate: 1
   configuration: {fileID: 0}
   identifiers: 
   globalControl: 1
   nav: {fileID: 2089680637}
+--- !u!114 &2089680641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2089680636}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79c52c8eb62b40d8b6639f4df4152b18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ca.kaijusolutions.agents::KaijuSolutions.Agents.Sensors.KaijuEverythingVisionSensor
+  automatic: 1
+  distance: 10
+  angle: 90
+  lineOfSight: 0
+  radius: 0
+  offset: 0
+  mask:
+    serializedVersion: 2
+    m_Bits: 51
+  triggers: 0
+  editorColor: {r: 1, g: 1, b: 1, a: 1}
+  editorFromAgent: 1
+  matchers:
+  - matchers: []
+--- !u!114 &2089680642
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2089680636}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c830833a10a6784bac32e8ad3841e15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GOAP
+  agent: {fileID: 2089680638}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
