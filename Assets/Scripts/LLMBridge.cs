@@ -193,7 +193,7 @@ public class LLMBridge : MonoBehaviour
     public void OnLLMResponse(string intentJSON)
     {
         GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(intentJSON);
-        Dictionary<string, bool> desiredGoal = new Dictionary<string, bool>();
+        Dictionary<string, object> desiredGoal = new Dictionary<string, object>();
         
         // find ghost brain?
         GoapController ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GoapController>() : null;
@@ -271,7 +271,7 @@ public class LLMBridge : MonoBehaviour
             if (ghostAI != null)
             {
                 // Request a plan to be in the target room
-                Dictionary<string, bool> goal = new Dictionary<string, bool> { { "In" + targetRoom, true } };
+                Dictionary<string, object> goal = new Dictionary<string, object> { { "In" + targetRoom, true } };
                 ghostAI.RequestPlan(goal);
             }
             else
