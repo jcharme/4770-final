@@ -30,9 +30,6 @@ public class GoapController : KaijuController
         "Bathroom-North", "Bedroom-Large", "Bathroom-South", "Bedroom-Small-North", "Bedroom-Small-South"
     };
     
-    /// <summary>
-    /// A dictionary which maps rooms to their adjacent rooms. Can use to see if rooms are connected.
-    /// </summary>
     protected readonly Dictionary<string, string[]> roomAdjacency = new()
     {
         { "Entrance", new[] { "Hall-East" } },
@@ -95,7 +92,11 @@ public class GoapController : KaijuController
                     name: $"Door_{startRoom}_to_{endRoom}",
                     cost: 1f,
                     preReqs: new Dictionary<string, object> { { "CurrentRoom", startRoom } }, 
-                    effects: new Dictionary<string, object> { { "CurrentRoom", endRoom } }, 
+                    effects: new Dictionary<string, object> 
+                    { 
+                        { "CurrentRoom", endRoom },
+                        { "In" + endRoom, true } 
+                    }, 
                     actionLogic: (context) => Action_MoveTo(context, endRoom)
                 ));
             }
@@ -140,7 +141,7 @@ public class GoapController : KaijuController
                     if (!worldState["CurrentRoom"].Equals(detectedRoom))
                     {
                         worldState["CurrentRoom"] = detectedRoom;
-                        Debug.Log($"<color=green>GOAP State Update:</color> Entered {detectedRoom}");
+                        Debug.Log($"<color=green>GOAP:</color> Room detected: {detectedRoom}");
                     }
                 }
             }
@@ -174,12 +175,20 @@ public class GoapController : KaijuController
     /// If a plan is found, it stops current activities and begins execution.
     /// </summary>
     /// <param name="goalState">A dictionary of desired state keys and their target values.</param>
-    public void RequestPlan(Dictionary<string, object> goalState)
+    public virtual void RequestPlan(Dictionary<string, object> goalState)
     {
+        string startRoom = worldState.ContainsKey("CurrentRoom") ? worldState["CurrentRoom"].ToString() : "Unknown";
+        string goalRoom = goalState.ContainsKey("CurrentRoom") ? goalState["CurrentRoom"].ToString() : "Goal State";
+    
+        Debug.Log($"<color=cyan>GOAP:</color> Planning path from <b>{startRoom}</b> to <b>{goalRoom}</b>...");
+
         var plan = GoapEngine.Plan(worldState, goalState, availableActions);
         if (plan != null && plan.Count > 0)
         {
             currentPlan = plan;
+            string planLog = "<color=green>Plan Found:</color> " + string.Join(" -> ", plan.Select(a => a.name));
+            Debug.Log(planLog);
+
             if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
             Agent.Stop();
             StopAllCoroutines();
@@ -188,7 +197,7 @@ public class GoapController : KaijuController
         }
         else 
         {
-            Debug.LogError("GOAP Failed! No path found to goal.");
+            Debug.LogError($"<color=red>GOAP Failed!</color> No path found to goal from {startRoom}.");
         }
     }
 
@@ -201,6 +210,7 @@ public class GoapController : KaijuController
         while (currentPlan.Count > 0)
         {
             GoapAction currentAction = currentPlan.Dequeue();
+            Debug.Log($"<color=cyan>GOAP:</color> Executing {currentAction.name}");
             yield return StartCoroutine(currentAction.logicCoroutine(this));
             foreach(var effect in currentAction.effects) worldState[effect.Key] = effect.Value;
         }
@@ -213,7 +223,11 @@ public class GoapController : KaijuController
     /// <param name="roomID">The ID of the room we want to move to.</param>
     public void MoveToRoom(string roomID)
     {
-        if (!roomIDs.Contains(roomID)) return;
+        if (!roomIDs.Contains(roomID))
+        {
+            Debug.LogError($"<color=red>GOAP:</color> {roomID} is not a valid room name!");
+            return;
+        }
         RequestPlan(new Dictionary<string, object> { { "CurrentRoom", roomID } });
     }
 
