@@ -195,11 +195,11 @@ public class LLMBridge : MonoBehaviour
         GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(intentJSON);
         Dictionary<string, object> desiredGoal = new Dictionary<string, object>();
         
-        // find ghost brain?
-        GoapController ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GoapController>() : null;
+        // find ghost brain
+        GhostController ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GhostController>() : null;
         if (ghostAI == null)
         {
-            Debug.LogError("GOAP component not found on ghostAgent!");
+            Debug.LogError("GhostController component not found on ghostAgent!");
             return;
         }
         
@@ -242,7 +242,7 @@ public class LLMBridge : MonoBehaviour
         }
         else if (cmd.goal.Contains("HideInShadows") || cmd.goal.Contains("HideInKitchen"))
         {
-            desiredGoal.Add("InKitchen", true);
+            desiredGoal.Add("CurrentRoom", "Kitchen");
             desiredGoal.Add("IsHidden", true);
         }
 
@@ -267,7 +267,7 @@ public class LLMBridge : MonoBehaviour
         
         if (ghostAgent != null)
         {
-            GoapController ghostAI = ghostAgent.GetComponent<GoapController>();
+            GhostController ghostAI = ghostAgent.GetComponent<GhostController>();
             if (ghostAI != null)
             {
                 // Request a plan to be in the target room
@@ -275,7 +275,7 @@ public class LLMBridge : MonoBehaviour
             }
             else
             {
-                Debug.LogError("GOAP component not found on ghostAgent!");
+                Debug.LogError("GhostController component not found on ghostAgent!");
                 
                 // Fallback to direct movement if GOAP is missing
                 GameObject waypoint = GameObject.Find("POI_" + targetRoom);
