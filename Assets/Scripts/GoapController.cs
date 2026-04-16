@@ -26,7 +26,7 @@ public class GoapController : KaijuController
         InitializeActions();
         InitializeRoomDetection();
         StartCoroutine(RoomDetectionLoop());
-        StartWandering();
+        // StartWandering();
     }
     
     private void OnValidate()
@@ -68,6 +68,22 @@ public class GoapController : KaijuController
     {
         "Entrance", "Hall-East", "Dining", "Kitchen", "Corridor", "Library", "Hall-West", 
         "Bathroom-North", "Bedroom-Large", "Bathroom-South", "Bedroom-Small-North", "Bedroom-Small-South"
+    };
+    
+    private Dictionary<string, string[]> roomAdjacency = new Dictionary<string, string[]>()
+    {
+        { "Entrance", new[] { "Hall-East" } },
+        { "Hall-East", new[] { "Dining", "Entrance", "Bedroom-Large" } },
+        { "Dining", new[] { "Kitchen", "Hall-East" } },
+        { "Kitchen", new[] { "Dining", "Corridor" } },
+        { "Corridor", new[] { "Kitchen", "Library", "Bedroom-Small-North", "Bedroom-Small-South" } },
+        { "Library", new[] { "Corridor", "Hall-West" } },
+        { "Hall-West", new[] { "Library", "Bathroom-North" } },
+        { "Bathroom-North", new[] { "Hall-West" } },
+        { "Bedroom-Large", new[] { "Hall-East", "Bathroom-South" } },
+        { "Bathroom-South", new[] { "Bedroom-Large" } },
+        { "Bedroom-Small-North", new[] { "Corridor" } },
+        { "Bedroom-Small-South", new[] { "Corridor" } }
     };
     
     private void InitializeRoomDetection()
@@ -112,18 +128,6 @@ public class GoapController : KaijuController
                 }
             }
             
-            // LOGGING - TEMP
-            // Start the string with a header
-            string report = "<color=yellow>--- GHOST STATE ---</color>\n";
-
-            // Loop through and add every key-value pair
-            foreach (var kvp in worldState)
-            {
-                report += $"<b>{kvp.Key}:</b> {kvp.Value}\n";
-            }
-
-            Debug.Log(report);
-            
             yield return new WaitForSeconds(0.2f); // 5 times a second is plenty
         }
     }
@@ -155,16 +159,24 @@ public class GoapController : KaijuController
 
         visionSensor = Agent.GetSensor<KaijuEverythingVisionSensor>();
         
-        // Setup movement actions
-        foreach (string roomId in roomIDs)
+        // Setup movement actions based on the adjancencies.
+        foreach (var room in roomAdjacency)
         {
-            availableActions.Add(new GoapAction(
-                name: "MoveTo" + roomId,
-                cost: 1f,
-                preReqs: new Dictionary<string, object>(), 
-                effects: new Dictionary<string, object> { { "CurrentRoom", roomId } }, 
-                actionLogic: (context) => Action_MoveTo(context, roomId)
-            ));
+            string startRoom = room.Key;
+            foreach (string endRoom in room.Value)
+            {
+                availableActions.Add(new GoapAction(
+                    name: $"Door_{startRoom}_to_{endRoom}",
+                    cost: 1f, // You can change this per connection!
+                    preReqs: new Dictionary<string, object> { { "CurrentRoom", startRoom } }, 
+                    effects: new Dictionary<string, object> 
+                    { 
+                        { "CurrentRoom", endRoom },
+                        { "In" + endRoom, true } 
+                    }, 
+                    actionLogic: (context) => Action_MoveTo(context, endRoom)
+                ));
+            }
         }
         
         // Setup specific behavior actions
@@ -175,24 +187,49 @@ public class GoapController : KaijuController
 
     public void RequestPlan(Dictionary<string, object> goalState)
     {
-        Debug.Log("<color=cyan>GOAP:</color> Requesting plan from GoapEngine...");
+        // 1. Log the Start vs Goal
+        string startRoom = worldState.ContainsKey("CurrentRoom") ? worldState["CurrentRoom"].ToString() : "Unknown";
+        string goalRoom = goalState.ContainsKey("CurrentRoom") ? goalState["CurrentRoom"].ToString() : "Unknown Goal";
+    
+        Debug.Log($"<color=cyan>GOAP:</color> Planning path from <b>{startRoom}</b> to <b>{goalRoom}</b>...");
+
         var plan = GoapEngine.Plan(worldState, goalState, availableActions);
-        
-        if (plan != null)
+    
+        if (plan != null && plan.Count > 0)
         {
             currentPlan = plan;
+        
+            // Pretty-print the plan sequence
+            string planLog = "<color=green>Plan Found:</color> " + string.Join(" -> ", plan.Select(a => a.name));
+            Debug.Log(planLog);
+        
             isChasing = true;
             if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
             Agent.Stop();
+        
             StopAllCoroutines();
-            
-            StartCoroutine(RoomDetectionLoop());
+            StartCoroutine(RoomDetectionLoop()); // Keep the raycast alive!
             StartCoroutine(ExecutePlan());
         }
         else 
         {
-            Debug.LogError("<color=red>GOAP:</color> Plan Failed!");
+            Debug.LogError($"<color=red>GOAP Failed!</color> No path from {startRoom} to {goalRoom}. Check your Adjacency Map or LLM Goal Key.");
         }
+    }
+
+    public void MoveToRoom(string roomName)
+    {
+        // Safety check: Does this room even exist in our master list?
+        if (!roomIDs.Contains(roomName))
+        {
+            Debug.LogError($"<color=red>GOAP:</color> {roomName} is not a valid room name!");
+            return;
+        }
+
+        // Create the goal: "I want my CurrentRoom to be [roomName]"
+        var goal = new Dictionary<string, object> { { "CurrentRoom", roomName } };
+        
+        RequestPlan(goal);
     }
 
     private IEnumerator ExecutePlan()
@@ -215,20 +252,31 @@ public class GoapController : KaijuController
 
     // --- Action Coroutines ---
 
-    private IEnumerator Action_MoveTo(GoapController context, string roomName)
+    private IEnumerator Action_MoveTo(GoapController context, string targetRoom)
     {
-        GameObject target = GameObject.Find("POI_" + roomName);
-        if (target != null)
+        GameObject poi = GameObject.Find("POI_" + targetRoom);
+        if (poi == null) yield break;
+
+        // 1. Physically start moving
+        context.Agent.PathFollow(poi.transform.position, clear: true);
+
+        // 2. The "Reality Lock": Wait for the raycast sensor to update the worldState
+        float timeout = 15f;
+        while (timeout > 0)
         {
-            context.Agent.PathFollow(target.transform.position, clear: true);
-            float timeout = 15f;
-            while (Vector3.Distance(context.Agent.transform.position, target.transform.position) > 1.5f && timeout > 0) 
+            // This checks the REAL room the ghost is standing on right now
+            if (context.worldState["CurrentRoom"].Equals(targetRoom))
             {
-                timeout -= Time.deltaTime;
-                yield return null;
+                Debug.Log($"<color=green>Confirmed:</color> Reached {targetRoom}");
+                yield break; // Success! Move to the next action in the plan.
             }
-            context.Agent.Stop();
+
+            timeout -= Time.deltaTime;
+            yield return null;
         }
+
+        // If we get here, the ghost got stuck or the raycast failed
+        Debug.LogError("Ghost failed to reach target room.");
     }
 
     private IEnumerator Action_Hide(GoapController context) { yield return new WaitForSeconds(1.5f); }

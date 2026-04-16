@@ -271,8 +271,7 @@ public class LLMBridge : MonoBehaviour
             if (ghostAI != null)
             {
                 // Request a plan to be in the target room
-                Dictionary<string, object> goal = new Dictionary<string, object> { { "In" + targetRoom, true } };
-                ghostAI.RequestPlan(goal);
+                ghostAI.MoveToRoom(targetRoom);
             }
             else
             {
