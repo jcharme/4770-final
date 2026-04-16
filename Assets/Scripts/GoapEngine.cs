@@ -2,6 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
+/// <summary>
+/// Represents an action that can be performed by a GOAP agent.
+/// </summary>
 public class GoapAction
 {
     public string name;
@@ -20,17 +23,28 @@ public class GoapAction
     /// <param name="actionLogic">The logic coroutine to execute when performing this action.</param>
     public GoapAction(string name, float cost, Dictionary<string, object> preReqs, Dictionary<string, object> effects, System.Func<GoapController, IEnumerator> actionLogic)
     {
-        this.name = name; this.cost = cost; this.preconditions = preReqs; this.effects = effects; this.logicCoroutine = actionLogic;
+        this.name = name;
+        this.cost = cost;
+        this.preconditions = preReqs;
+        this.effects = effects;
+        this.logicCoroutine = actionLogic;
     }
 }
 
+/// <summary>
+/// Represents a node in the A* search tree for GOAP planning.
+/// </summary>
 public class GoapNode
 {
-    public GoapNode parent; 
-    public float runningCost; 
-    public float heuristicCost; 
-    public Dictionary<string, object> state; 
-    public GoapAction action; 
+    public GoapNode parent;
+    public float runningCost;
+    public float heuristicCost;
+    public Dictionary<string, object> state;
+    public GoapAction action;
+
+    /// <summary>
+    /// Gets the total cost (G + H) of this node.
+    /// </summary>
     public float TotalCost => runningCost + heuristicCost;
 
     /// <summary>
@@ -42,18 +56,17 @@ public class GoapNode
     /// <param name="action">The action taken to reach this node.</param>
     public GoapNode(GoapNode parent, float runningCost, Dictionary<string, object> state, GoapAction action)
     {
-        this.parent = parent; 
-        this.runningCost = runningCost; 
+        this.parent = parent;
+        this.runningCost = runningCost;
         this.action = action;
         // Deep copy ensures we don't accidentally modify the live world state during planning
-        this.state = new Dictionary<string, object>(state); 
+        this.state = new Dictionary<string, object>(state);
     }
 }
 
-// ==========================================
-// THE GOAP ENGINE (Static Planner)
-// ==========================================
-
+/// <summary>
+/// A static utility class for generating plans using Goal-Oriented Action Planning.
+/// </summary>
 public static class GoapEngine
 {
     /// <summary>
@@ -67,42 +80,54 @@ public static class GoapEngine
     {
         List<GoapNode> openList = new List<GoapNode>();
         List<GoapNode> closedList = new List<GoapNode>();
-        
+
         GoapNode startNode = new GoapNode(null, 0, start, null);
         startNode.heuristicCost = CalculateHeuristic(start, goal);
         openList.Add(startNode);
-        
+
         int iterations = 0;
+        // Safety limit to prevent infinite loops in complex or unsolvable state spaces
         while (openList.Count > 0 && iterations < 1000)
         {
             iterations++;
-            // Sort by TotalCost (G + H)
+
+            // Sort by TotalCost (G + H) to prioritize the most promising paths
             openList = openList.OrderBy(n => n.TotalCost).ToList();
             GoapNode currentNode = openList[0];
             openList.RemoveAt(0);
             closedList.Add(currentNode);
-            
-            if (IsGoalMet(currentNode.state, goal)) return ReconstructPath(currentNode);
-            
+
+            if (IsGoalMet(currentNode.state, goal))
+            {
+                return ReconstructPath(currentNode);
+            }
+
             foreach (GoapAction action in actions)
             {
                 if (ArePreconditionsMet(action.preconditions, currentNode.state))
                 {
                     Dictionary<string, object> newState = new Dictionary<string, object>(currentNode.state);
-                    foreach (var effect in action.effects) newState[effect.Key] = effect.Value;
-                    
+                    foreach (var effect in action.effects)
+                    {
+                        newState[effect.Key] = effect.Value;
+                    }
+
                     float gCost = currentNode.runningCost + action.cost;
-                    
-                    // Skip if we've already found a better way to get to this state
-                    if (closedList.Exists(n => StatesMatch(n.state, newState) && n.runningCost <= gCost)) continue;
-                    
+
+                    // Skip if we've already found a better or equal way to get to this state
+                    if (closedList.Exists(n => StatesMatch(n.state, newState) && n.runningCost <= gCost))
+                    {
+                        continue;
+                    }
+
                     GoapNode node = new GoapNode(currentNode, gCost, newState, action);
                     node.heuristicCost = CalculateHeuristic(newState, goal);
                     openList.Add(node);
                 }
             }
         }
-        return null; // No path found
+
+        return null;
     }
 
     /// <summary>
@@ -113,7 +138,11 @@ public static class GoapEngine
     private static Queue<GoapAction> ReconstructPath(GoapNode node)
     {
         Stack<GoapAction> path = new Stack<GoapAction>();
-        while (node.action != null) { path.Push(node.action); node = node.parent; }
+        while (node.action != null)
+        {
+            path.Push(node.action);
+            node = node.parent;
+        }
         return new Queue<GoapAction>(path);
     }
 
@@ -123,7 +152,10 @@ public static class GoapEngine
     /// <param name="pre">The action's preconditions.</param>
     /// <param name="st">The current world state.</param>
     /// <returns>True if all preconditions are met, false otherwise.</returns>
-    private static bool ArePreconditionsMet(Dictionary<string, object> pre, Dictionary<string, object> st) => pre.All(p => st.ContainsKey(p.Key) && st[p.Key].Equals(p.Value));
+    private static bool ArePreconditionsMet(Dictionary<string, object> pre, Dictionary<string, object> st)
+    {
+        return pre.All(p => st.ContainsKey(p.Key) && st[p.Key].Equals(p.Value));
+    }
 
     /// <summary>
     /// Checks if the current state satisfies the goal requirements.
@@ -131,7 +163,10 @@ public static class GoapEngine
     /// <param name="st">The current world state.</param>
     /// <param name="goal">The goal state requirements.</param>
     /// <returns>True if the goal is met, false otherwise.</returns>
-    private static bool IsGoalMet(Dictionary<string, object> st, Dictionary<string, object> goal) => goal.All(g => st.ContainsKey(g.Key) && st[g.Key].Equals(g.Value));
+    private static bool IsGoalMet(Dictionary<string, object> st, Dictionary<string, object> goal)
+    {
+        return goal.All(g => st.ContainsKey(g.Key) && st[g.Key].Equals(g.Value));
+    }
 
     /// <summary>
     /// Calculates the heuristic cost (number of unmet goal conditions) for the given state.
@@ -139,7 +174,10 @@ public static class GoapEngine
     /// <param name="st">The current world state.</param>
     /// <param name="goal">The goal state requirements.</param>
     /// <returns>The heuristic cost.</returns>
-    private static float CalculateHeuristic(Dictionary<string, object> st, Dictionary<string, object> goal) => goal.Count(g => !st.ContainsKey(g.Key) || !st[g.Key].Equals(g.Value));
+    private static float CalculateHeuristic(Dictionary<string, object> st, Dictionary<string, object> goal)
+    {
+        return goal.Count(g => !st.ContainsKey(g.Key) || !st[g.Key].Equals(g.Value));
+    }
 
     /// <summary>
     /// Compares two world states for equality.
@@ -147,5 +185,8 @@ public static class GoapEngine
     /// <param name="a">The first state.</param>
     /// <param name="b">The second state.</param>
     /// <returns>True if the states match exactly, false otherwise.</returns>
-    private static bool StatesMatch(Dictionary<string, object> a, Dictionary<string, object> b) => a.Count == b.Count && a.All(kv => b.ContainsKey(kv.Key) && b[kv.Key].Equals(kv.Value));
+    private static bool StatesMatch(Dictionary<string, object> a, Dictionary<string, object> b)
+    {
+        return a.Count == b.Count && a.All(kv => b.ContainsKey(kv.Key) && b[kv.Key].Equals(kv.Value));
+    }
 }
