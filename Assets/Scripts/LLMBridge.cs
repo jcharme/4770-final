@@ -193,13 +193,13 @@ public class LLMBridge : MonoBehaviour
     public void OnLLMResponse(string intentJSON)
     {
         GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(intentJSON);
-        Dictionary<string, bool> desiredGoal = new Dictionary<string, bool>();
+        Dictionary<string, object> desiredGoal = new Dictionary<string, object>();
         
-        // find ghost brain?
-        GOAP ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GOAP>() : null;
+        // find ghost brain
+        GhostController ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GhostController>() : null;
         if (ghostAI == null)
         {
-            Debug.LogError("GOAP component not found on ghostAgent!");
+            Debug.LogError("GhostController component not found on ghostAgent!");
             return;
         }
         
@@ -242,7 +242,7 @@ public class LLMBridge : MonoBehaviour
         }
         else if (cmd.goal.Contains("HideInShadows") || cmd.goal.Contains("HideInKitchen"))
         {
-            desiredGoal.Add("InKitchen", true);
+            desiredGoal.Add("CurrentRoom", "Kitchen");
             desiredGoal.Add("IsHidden", true);
         }
 
@@ -267,16 +267,15 @@ public class LLMBridge : MonoBehaviour
         
         if (ghostAgent != null)
         {
-            GOAP ghostAI = ghostAgent.GetComponent<GOAP>();
+            GhostController ghostAI = ghostAgent.GetComponent<GhostController>();
             if (ghostAI != null)
             {
                 // Request a plan to be in the target room
-                Dictionary<string, bool> goal = new Dictionary<string, bool> { { "In" + targetRoom, true } };
-                ghostAI.RequestPlan(goal);
+                ghostAI.MoveToRoom(targetRoom);
             }
             else
             {
-                Debug.LogError("GOAP component not found on ghostAgent!");
+                Debug.LogError("GhostController component not found on ghostAgent!");
                 
                 // Fallback to direct movement if GOAP is missing
                 GameObject waypoint = GameObject.Find("POI_" + targetRoom);
