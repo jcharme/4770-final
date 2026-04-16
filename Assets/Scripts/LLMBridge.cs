@@ -94,17 +94,19 @@ public class LLMBridge : MonoBehaviour
         // 2. Build the prompt with strict Goal alignment
         string systemPrompt = "You are a ghost in a haunted house. Use the following map to navigate:\n\n" + 
                        mapContext + "\n\n" +
+                       "RESIDENTS:\n" +
+                       "- John\n" +
+                       "- Ivan\n\n" +
                        "GOAL SELECTION RULES:\n" +
                        "- If the user wants to scare or haunt: use goal 'ScareResident'.\n" +
                        "- If the user wants to go to a room: use goal 'MoveTo<roomID>' (e.g., 'MoveToBedroom-North').\n" +
-                       // "- If the user wants to retreat or hide: use goal 'HideInKitchen'.\n" +
                        "- If no specific goal is mentioned: use goal 'none'.\n\n" +
                        "ROOM SELECTION RULES:\n" +
                        "- Identify the room by ID (e.g., 'Hall-East').\n" +
-                       "- Use 'Position' and 'Features' to resolve vague requests (e.g., 'the room with the yellow rug' is Library).\n\n" +
+                       "- Use 'Position' and 'Features' to resolve vague requests.\n\n" +
                        "RESPONSE FORMAT:\n" +
                        "Return ONLY a JSON object: {\"room\": \"RoomID\", \"goal\": \"GoalName\", \"target\": \"TargetName\"}.\n" +
-                       "If hunting a person, set 'target' to their name (e.g. 'Resident'). Otherwise leave it blank.";
+                       "If hunting a specific person, set 'target' to their name (e.g. 'John'). If hunting 'the person' in a room, set 'target' to 'Resident' and specify the 'room'.";
         
         string combinedPrompt = systemPrompt + userInput;
 
@@ -209,26 +211,41 @@ public class LLMBridge : MonoBehaviour
         {
             desiredGoal.Add("ResidentScared", true);
             
-            GameObject victim = null;
-            
-            // Try to find the exact target the LLM named
-            if (!string.IsNullOrEmpty(cmd.target))
+            ResidentController[] allResidents = FindObjectsByType<ResidentController>(FindObjectsSortMode.None);
+            ResidentController victim = null;
+
+            if (allResidents.Length > 0)
             {
-                victim = GameObject.Find(cmd.target);
-                if (victim != null) Debug.Log($"<color=green>LLM Bridge:</color> Found specific target: {cmd.target}");
-            }
-            
-            // Fallback: If LLM didn't give a name, just grab ANY ResidentController in the scene
-            if (victim == null)
-            {
-                ResidentController anyResident = FindFirstObjectByType<ResidentController>();
-                if (anyResident != null) 
+                // 1. Try to find the exact target the LLM named (if provided)
+                if (!string.IsNullOrEmpty(cmd.target) && cmd.target.ToLower() != "resident")
                 {
-                    victim = anyResident.gameObject;
-                    Debug.Log($"<color=green>LLM Bridge:</color> Found fallback target: {victim.name}");
+                    victim = allResidents.FirstOrDefault(r => r.gameObject.name.IndexOf(cmd.target, StringComparison.OrdinalIgnoreCase) >= 0);
+                    if (victim != null) Debug.Log($"<color=green>LLM Bridge:</color> Found specific target by name: {cmd.target}");
+                }
+
+                // 2. If no name match, but a room was mentioned, find the resident closest to that room
+                if (victim == null && !string.IsNullOrEmpty(cmd.room))
+                {
+                    GameObject poi = GameObject.Find("POI_" + cmd.room);
+                    if (poi != null)
+                    {
+                        victim = allResidents
+                            .OrderBy(r => Vector3.Distance(r.transform.position, poi.transform.position))
+                            .FirstOrDefault();
+                        if (victim != null) Debug.Log($"<color=green>LLM Bridge:</color> Found resident closest to room {cmd.room}: {victim.name}");
+                    }
+                }
+
+                // 3. Fallback: Just grab the closest resident to the ghost
+                if (victim == null)
+                {
+                    victim = allResidents
+                        .OrderBy(r => Vector3.Distance(r.transform.position, ghostAI.transform.position))
+                        .FirstOrDefault();
+                    if (victim != null) Debug.Log($"<color=green>LLM Bridge:</color> Found fallback (closest) resident: {victim.name}");
                 }
             }
-            
+
             // Lock onto the victim!
             if (victim != null)
             {
@@ -236,8 +253,8 @@ public class LLMBridge : MonoBehaviour
             }
             else
             {
-                Debug.LogError("LLM requested a scare, but could not find a Resident in the scene!");
-                return; // Abort planning so we don't crash
+                Debug.LogError("LLM requested a scare, but could not find any Residents in the scene!");
+                return; // Abort planning
             }
         }
         else if (cmd.goal.Contains("HideInShadows") || cmd.goal.Contains("HideInKitchen"))

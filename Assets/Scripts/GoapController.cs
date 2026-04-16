@@ -284,12 +284,20 @@ public class GoapController : KaijuController
     private IEnumerator Action_Chase(GoapController context)
     {
         if (context.targetVictim == null) yield break;
-        context.Agent.PathFollow(context.targetVictim, clear: true);
+        
         float timeout = 20f;
-        while (context.targetVictim != null && Vector3.Distance(context.transform.position, context.targetVictim.position) > 2.0f && timeout > 0)
+        while (context.targetVictim != null && timeout > 0)
         {
-            timeout -= Time.deltaTime;
-            yield return null;
+            float distance = Vector3.Distance(context.transform.position, context.targetVictim.position);
+            
+            // Reached the victim
+            if (distance <= 2.0f) break;
+
+            // Update path to the moving victim
+            context.Agent.PathFollow(context.targetVictim.position, clear: true);
+
+            timeout -= 0.2f;
+            yield return new WaitForSeconds(0.2f); 
         }
         context.Agent.Stop();
     }
