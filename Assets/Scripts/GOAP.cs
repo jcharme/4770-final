@@ -37,8 +37,18 @@ public class GOAP : BaseWanderController
         if (initialized) return;
         initialized = true;
 
+        Debug.Log("<color=cyan>GOAP:</color> Initializing actions...");
+
         visionSensor = Agent.GetSensor<KaijuEverythingVisionSensor>();
-        if (visionSensor != null) visionSensor.automatic = true;
+        if (visionSensor != null) 
+        {
+            visionSensor.automatic = true;
+            Debug.Log("<color=cyan>GOAP:</color> Vision sensor found and set to automatic.");
+        }
+        else
+        {
+            Debug.LogWarning("<color=cyan>GOAP:</color> Vision sensor NOT found on Agent.");
+        }
         
         foreach (string roomId in roomIDs)
         {
@@ -61,8 +71,10 @@ public class GOAP : BaseWanderController
         availableActions.Add(new GoapAction("HideInShadows", 1f, new Dictionary<string, bool>() {{"InKitchen", true}}, new Dictionary<string, bool>() {{"IsHidden", true}}, Action_Hide));
         availableActions.Add(new GoapAction("ChaseVictim", 1f, new Dictionary<string, bool>(), new Dictionary<string, bool>() {{"NearVictim", true}}, Action_Chase));
         availableActions.Add(new GoapAction("ScareVictim", 1f, new Dictionary<string, bool>() { { "NearVictim", true } }, new Dictionary<string, bool>() { { "ResidentScared", true } }, Action_Scare));
+        
+        Debug.Log($"<color=cyan>GOAP:</color> Initialized {availableActions.Count} actions.");
     }
-    
+
     protected override void OnMovementStopped(KaijuMovement movement)
     {
         if (!isChasing)
@@ -74,6 +86,7 @@ public class GOAP : BaseWanderController
 
     protected override void StartWandering()
     {
+        Debug.Log("<color=cyan>GOAP:</color> Starting wandering state.");
         isChasing = false;
         base.StartWandering();
     }
@@ -85,6 +98,7 @@ public class GOAP : BaseWanderController
     
     public void RequestPlan(Dictionary<string, bool> goalState)
     {
+        Debug.Log($"<color=cyan>GOAP:</color> Planning started for goal: {string.Join(", ", goalState.Select(kv => kv.Key + "=" + kv.Value))}");
         currentPlan.Clear();
         List<GoapNode> openList = new List<GoapNode>();
         List<GoapNode> closedList = new List<GoapNode>();
@@ -94,8 +108,10 @@ public class GOAP : BaseWanderController
         openList.Add(startNode);
         
         GoapNode cheapestNode = null;
-        while (openList.Count > 0)
+        int iterations = 0;
+        while (openList.Count > 0 && iterations < 1000)
         {
+            iterations++;
             openList.Sort((a, b) => a.TotalCost.CompareTo(b.TotalCost));
             GoapNode currentNode = openList[0];
             openList.Remove(currentNode);
@@ -130,11 +146,17 @@ public class GOAP : BaseWanderController
             actionPath.Reverse();
             foreach (var action in actionPath) currentPlan.Enqueue(action);
 
+            Debug.Log($"<color=cyan>GOAP:</color> Plan found with {currentPlan.Count} steps: {string.Join(" -> ", actionPath.Select(a => a.name))}");
+
             isChasing = true;
             if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
             Agent.Stop();
             StopAllCoroutines();
             StartCoroutine(ExecutePlan());
+        }
+        else 
+        {
+            Debug.LogError($"<color=red>GOAP PLAN FAILED:</color> Could not find a valid sequence of actions to reach the goal after {iterations} iterations. Available actions: {availableActions.Count}");
         }
     }
     
@@ -145,13 +167,19 @@ public class GOAP : BaseWanderController
     
     private IEnumerator ExecutePlan()
     {
+        Debug.Log("<color=cyan>GOAP:</color> Executing plan...");
         while (currentPlan.Count > 0)
         {
             GoapAction currentAction = currentPlan.Dequeue();
+            Debug.Log($"<color=cyan>GOAP:</color> Performing action: {currentAction.name}");
             yield return StartCoroutine(currentAction.logicCoroutine(this));
             foreach(var effect in currentAction.effects) worldState[effect.Key] = effect.Value;
         }
+        Debug.Log("<color=cyan>GOAP:</color> Plan completed.");
+        // Reset states so the ghost is allowed to do them again in the future
         worldState["NearVictim"] = false; 
+        worldState["ResidentScared"] = false; 
+        
         StartWandering();
     }
 
@@ -161,7 +189,7 @@ public class GOAP : BaseWanderController
         if (target != null)
         {
             context.Agent.PathFollow(target.transform.position, clear: true);
-            context.Agent.ObstacleAvoidance(clear: false);
+            
         
             float timeout = 15f; // Max 15 seconds to reach a room
             while (Vector3.Distance(context.Agent.transform.position, target.transform.position) > 1.5f && timeout > 0) 
@@ -180,7 +208,7 @@ public class GOAP : BaseWanderController
     {
         if (context.targetVictim == null) yield break;
         context.Agent.PathFollow(context.targetVictim, clear: true);
-        context.Agent.ObstacleAvoidance(clear: false);
+        
         float timeout = 20f;
         while (context.targetVictim != null && 
                Vector3.Distance(context.transform.position, context.targetVictim.position) > 2.0f && 

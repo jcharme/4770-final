@@ -146,6 +146,7 @@ public class LLMBridge : MonoBehaviour
     // The parser: extracts JSON and triggers game logic
     void ProcessResponse(string rawResponse)
     {
+        Debug.Log("<color=green>LLM Response received:</color> " + rawResponse);
         GeminiResponse responseData = JsonUtility.FromJson<GeminiResponse>(rawResponse);
         
         if (responseData?.candidates != null && responseData.candidates.Count > 0)
@@ -160,20 +161,32 @@ public class LLMBridge : MonoBehaviour
             // Parse the AI's JSON into  GhostCommand 
             GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(aiText);
             
-            // Handle GOAP goals if present
-            if (cmd != null && !string.IsNullOrEmpty(cmd.goal))
+            if (cmd == null)
             {
+                Debug.LogError("Failed to parse GhostCommand from cleaned JSON.");
+                return;
+            }
+
+            // Handle GOAP goals if present
+            if (!string.IsNullOrEmpty(cmd.goal) && cmd.goal.ToLower() != "none")
+            {
+                Debug.Log($"<color=green>LLM Bridge:</color> Triggering OnLLMResponse with goal: {cmd.goal}");
                 OnLLMResponse(aiText);
             }
             // Fallback to direct movement if goal is missing but room is present
-            else if (cmd != null && !string.IsNullOrEmpty(cmd.room))
+            else if (!string.IsNullOrEmpty(cmd.room))
             {
+                Debug.Log($"<color=green>LLM Bridge:</color> Falling back to MoveGhost with room: {cmd.room}");
                 MoveGhost(cmd.room);
+            }
+            else
+            {
+                Debug.LogWarning("LLM returned no goal and no room.");
             }
         }
         else
         {
-            Debug.LogError("Failed to parse Gemini response.");
+            Debug.LogError("Failed to parse Gemini response candidates.");
         }
     }
 
@@ -190,6 +203,8 @@ public class LLMBridge : MonoBehaviour
             return;
         }
         
+        Debug.Log($"<color=green>LLM Bridge:</color> Processing goal '{cmd.goal}' for target '{cmd.target}'");
+
         if (cmd.goal.Contains("ScareResident"))
         {
             desiredGoal.Add("ResidentScared", true);
@@ -200,6 +215,7 @@ public class LLMBridge : MonoBehaviour
             if (!string.IsNullOrEmpty(cmd.target))
             {
                 victim = GameObject.Find(cmd.target);
+                if (victim != null) Debug.Log($"<color=green>LLM Bridge:</color> Found specific target: {cmd.target}");
             }
             
             // Fallback: If LLM didn't give a name, just grab ANY ResidentController in the scene
@@ -209,6 +225,7 @@ public class LLMBridge : MonoBehaviour
                 if (anyResident != null) 
                 {
                     victim = anyResident.gameObject;
+                    Debug.Log($"<color=green>LLM Bridge:</color> Found fallback target: {victim.name}");
                 }
             }
             
@@ -223,7 +240,7 @@ public class LLMBridge : MonoBehaviour
                 return; // Abort planning so we don't crash
             }
         }
-        else if (cmd.goal.Contains("HideInKitchen"))
+        else if (cmd.goal.Contains("HideInShadows") || cmd.goal.Contains("HideInKitchen"))
         {
             desiredGoal.Add("InKitchen", true);
             desiredGoal.Add("IsHidden", true);
@@ -232,11 +249,13 @@ public class LLMBridge : MonoBehaviour
         // Request the plan
         if (desiredGoal.Count > 0)
         {
+            Debug.Log($"<color=green>LLM Bridge:</color> Requesting plan from GOAP for {desiredGoal.Count} conditions.");
             ghostAI.RequestPlan(desiredGoal);
         }
         else if (!string.IsNullOrEmpty(cmd.room))
         {
             // If no recognized goal, just move to the room
+            Debug.Log($"<color=green>LLM Bridge:</color> No recognized goal, moving to room: {cmd.room}");
             MoveGhost(cmd.room);
         }
     }

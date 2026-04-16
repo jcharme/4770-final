@@ -131,6 +131,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: RegularGhost_Model
       objectReference: {fileID: 0}
+    - target: {fileID: 100006, guid: 563ac48ff656d49478fd93213f4c0eb8, type: 3}
+      propertyPath: m_TagString
+      value: Ghost
+      objectReference: {fileID: 0}
     - target: {fileID: 400006, guid: 563ac48ff656d49478fd93213f4c0eb8, type: 3}
       propertyPath: m_LocalPosition.x
       value: -49.484
@@ -2199,7 +2203,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ee9586acadbc364b8de59591b251d95, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ResidentController
-  agent: {fileID: 1279128583}
+  agent: {fileID: 0}
 --- !u!114 &1279128583
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2776,7 +2780,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ee9586acadbc364b8de59591b251d95, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ResidentController
-  agent: {fileID: 1607196382}
+  agent: {fileID: 0}
 --- !u!114 &1607196382
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3403,7 +3407,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c830833a10a6784bac32e8ad3841e15, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GOAP
-  agent: {fileID: 2089680638}
+  agent: {fileID: 0}
   targetVictim: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

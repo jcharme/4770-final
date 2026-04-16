@@ -99,12 +99,12 @@ public class ResidentController : BaseWanderController
         if (target != null)
         {
             Agent.PathFollow(target.transform.position, clear: true);
-            Agent.ObstacleAvoidance(clear: false);
+            
         }
         else
         {
             Agent.Flee(ghostTransform, clear: true);
-            Agent.ObstacleAvoidance();
+            Agent.ObstacleAvoidance(clear: false);
         }
     }
 }
