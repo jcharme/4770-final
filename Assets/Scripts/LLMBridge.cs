@@ -4,6 +4,7 @@ using System.Collections;
 using Project;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using KaijuSolutions.Agents;
 using KaijuSolutions.Agents.Movement;
@@ -40,12 +41,20 @@ public class LLMBridge : MonoBehaviour
         apiKey = APIKeys.GeminiKey;
     }
 
-    // Prompt forces AI to output JSON
-    private string systemPrompt = "You are a ghost in a haunted house. " +
-                                  "The available rooms are: Kitchen, Library, and Hallway. " +
-                                  "You can also choose a goal: 'ScarePlayer' or 'HideInKitchen'. " +
-                                  "You must respond ONLY with a JSON object in this exact format: {\"room\": \"RoomName\", \"goal\": \"GoalName\"}. " +
-                                  "User command: ";
+    private string[] roomDescriptions = {
+        "ID: Entrance | Position: Far East. | Connections: [Hall-East (West)] | Features: Checkered floor (no carpet), main double doors.",
+        "ID: Hall-East | Position: East-Central. | Connections: [Dining (North), Entrance (East), Bedroom-Large (South)] | Features: Blue carpet, wooden floor, furnace.",
+        "ID: Dining | Position: North-East. | Connections: [Kitchen (West), Hall-East (South)] | Features: Checkered floor (no carpet), large table.",
+        "ID: Kitchen | Position: North-Central. | Connections: [Dining (East), Corridor (South)] | Features: Green rug, stone tiles, stovetop.",
+        "ID: Corridor | Position: Central transition. | Connections: [Kitchen (North), Library (West), Bedroom-Small-North (East), Bedroom-Small-South (East)] | Features: Long blue rugs, plus one yellow rug at the bottom near the Library entrance.",
+        "ID: Library | Position: West-Central. | Connections: [Corridor (East), Hall-West (South)] | Features: Large yellow rug, chairs, book-filled walls.",
+        "ID: Hall-West | Position: Far West. | Connections: [Library (North), Bathroom-North (North)] | Features: Red rugs (only red ones in the house), lounge chairs.",
+        "ID: Bathroom-North | Position: North-West corner. | Connections: [Hall-West (South)] | Features: Green carpet, bathtub, tiled floor.",
+        "ID: Bedroom-Large | Position: South-East. | Connections: [Hall-East (North), Bathroom-South (West)] | Features: Purple carpet, large bed.",
+        "ID: Bathroom-South | Position: South-Central. | Connections: [Bedroom-Large (East)] | Features: White tiles (no carpet), bathtub.",
+        "ID: Bedroom-Small-North | Position: Mid-East. | Connections: [Corridor (West)] | Features: Bed, dresser, wooden floor.",
+        "ID: Bedroom-Small-South | Position: Mid-East. | Connections: [Corridor (West)] | Features: Bed, dresser, wooden floor."
+    };
 
     // This is the function the UI Button calls
     public void RequestAction(string userInput)
@@ -78,6 +87,24 @@ public class LLMBridge : MonoBehaviour
     IEnumerator SendRequest(string userInput, string targetModel, Action<bool, string> callback)
     {
         string url = $"https://generativelanguage.googleapis.com/v1beta/models/{targetModel}:generateContent?key={apiKey.Trim()}";
+        
+        // 1. Join your combined descriptions (the ones with Position and Features)
+        string mapContext = string.Join("\n", roomDescriptions);
+
+        // 2. Build the prompt with strict Goal alignment
+        string systemPrompt = "You are a ghost in a haunted house. Use the following map to navigate:\n\n" + 
+                       mapContext + "\n\n" +
+                       "GOAL SELECTION RULES:\n" +
+                       "- If the user wants to scare or haunt: use goal 'ScareResident'.\n" +
+                       "- If the user wants to go to a room: use goal 'MoveTo<roomID>' (e.g., 'MoveToBedroom-North').\n" +
+                       // "- If the user wants to retreat or hide: use goal 'HideInKitchen'.\n" +
+                       "- If no specific goal is mentioned: use goal 'none'.\n\n" +
+                       "ROOM SELECTION RULES:\n" +
+                       "- Identify the room by ID (e.g., 'Hall-East').\n" +
+                       "- Use 'Position' and 'Features' to resolve vague requests (e.g., 'the room with the yellow rug' is Library).\n\n" +
+                       "RESPONSE FORMAT:\n" +
+                       "Return ONLY a JSON object: {\"room\": \"RoomID\", \"goal\": \"GoalName\"}.";
+        
         string combinedPrompt = systemPrompt + userInput;
 
         string escapedPrompt = combinedPrompt

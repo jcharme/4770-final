@@ -16,9 +16,9 @@ public class GOAP : KaijuController
     // World State
     public Dictionary<string, bool> worldState = new Dictionary<string, bool>()
     {
-        { "InKitchen", false },
-        { "InLibrary", false },
-        { "InHallway", false },
+        // { "InKitchen", false },
+        // { "InLibrary", false },
+        // { "InHallway", false },
         { "IsHidden", false },
         { "PlayerScared", false },
         { "PlayerInSight", false },  
@@ -45,6 +45,12 @@ public class GOAP : KaijuController
     {
         InitializeActions();
     }
+    
+    private string[] roomIDs = {
+        "Entrance", "Hall-East", "Dining", "Kitchen", "Corridor", 
+        "Library", "Hall-West", "Bathroom-North", "Bedroom-Large", 
+        "Bathroom-South", "Bedroom-Small-North", "Bedroom-Small-South"
+    };
 
     private bool initialized = false;
     private void InitializeActions()
@@ -58,27 +64,54 @@ public class GOAP : KaijuController
             visionSensor.automatic = true;
         }
         
-        // Define Actions
-        availableActions.Add(new GoapAction("MoveToKitchen",
-            cost: 1f,
-            preReqs: new Dictionary<string, bool>(), 
-            effects:  new Dictionary<string, bool>() {{"InKitchen", true}, {"InLibrary", false}, {"InHallway", false}},
-            actionLogic: (context) => Action_MoveTo(context, "Kitchen")
-            ));
+        foreach (string roomId in roomIDs)
+        {
+            string stateKey = "In" + roomId;
 
-        availableActions.Add(new GoapAction("MoveToLibrary",
-            cost: 1f,
-            preReqs: new Dictionary<string, bool>(), 
-            effects:  new Dictionary<string, bool>() {{"InLibrary", true}, {"InKitchen", false}, {"InHallway", false}},
-            actionLogic: (context) => Action_MoveTo(context, "Library")
-            ));
+            // NEW: Add the room to worldState so the Planner knows it exists!
+            if (!worldState.ContainsKey(stateKey)) {
+                worldState.Add(stateKey, false);
+            }
 
-        availableActions.Add(new GoapAction("MoveToHallway",
-            cost: 1f,
-            preReqs: new Dictionary<string, bool>(), 
-            effects:  new Dictionary<string, bool>() {{"InHallway", true}, {"InKitchen", false}, {"InLibrary", false}},
-            actionLogic: (context) => Action_MoveTo(context, "Hallway")
+            string actionName = "MoveTo" + roomId;
+            var effects = new Dictionary<string, bool>();
+        
+            // This loop is good—it ensures only ONE room is true at a time
+            foreach (string otherId in roomIDs)
+            {
+                effects.Add("In" + otherId, (otherId == roomId)); 
+            }
+
+            availableActions.Add(new GoapAction(
+                name: actionName,
+                cost: 1f,
+                preReqs: new Dictionary<string, bool>(), 
+                effects: effects,
+                actionLogic: (context) => Action_MoveTo(context, roomId)
             ));
+        }
+        
+        // // Define Actions
+        // availableActions.Add(new GoapAction("MoveToKitchen",
+        //     cost: 1f,
+        //     preReqs: new Dictionary<string, bool>(), 
+        //     effects:  new Dictionary<string, bool>() {{"InKitchen", true}, {"InLibrary", false}, {"InHallway", false}},
+        //     actionLogic: (context) => Action_MoveTo(context, "Kitchen")
+        //     ));
+        //
+        // availableActions.Add(new GoapAction("MoveToLibrary",
+        //     cost: 1f,
+        //     preReqs: new Dictionary<string, bool>(), 
+        //     effects:  new Dictionary<string, bool>() {{"InLibrary", true}, {"InKitchen", false}, {"InHallway", false}},
+        //     actionLogic: (context) => Action_MoveTo(context, "Library")
+        //     ));
+        //
+        // availableActions.Add(new GoapAction("MoveToHallway",
+        //     cost: 1f,
+        //     preReqs: new Dictionary<string, bool>(), 
+        //     effects:  new Dictionary<string, bool>() {{"InHallway", true}, {"InKitchen", false}, {"InLibrary", false}},
+        //     actionLogic: (context) => Action_MoveTo(context, "Hallway")
+        //     ));
         
         availableActions.Add(new GoapAction("HideInShadows",
             cost: 1f,
