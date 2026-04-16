@@ -1,13 +1,15 @@
 using UnityEngine;
 using System.Collections;
 
+/// <summary>
+/// Specialized GOAP agent representing a resident who wanders between rooms and can be scared by ghosts.
+/// </summary>
 public class ResidentController : GoapController
 {
     private bool isScared = false;
-    
+
     /// <summary>
-    /// Called when the script instance is being loaded.
-    /// Initializes actions and starts the adjacent wandering behavior.
+    /// Initializes the resident and starts their wandering behavior.
     /// </summary>
     protected override void OnEnabled()
     {
@@ -21,54 +23,67 @@ public class ResidentController : GoapController
     private void StartAdjacentWander()
     {
         isScared = false;
-        if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
+        if (wanderCoroutine != null)
+        {
+            StopCoroutine(wanderCoroutine);
+        }
         wanderCoroutine = StartCoroutine(AdjacentWanderLoop());
     }
 
     /// <summary>
     /// Coroutine that periodically chooses an adjacent room to wander to.
     /// </summary>
-    /// <returns>An IEnumerator for the coroutine.</returns>
     private IEnumerator AdjacentWanderLoop()
     {
         while (!isScared)
         {
             yield return new WaitForSeconds(Random.Range(5f, 10f));
-            if (isScared) continue;
+
+            if (isScared)
+            {
+                continue;
+            }
 
             string currentRoom = worldState["CurrentRoom"].ToString();
             if (roomAdjacency.ContainsKey(currentRoom))
             {
                 string[] neighbors = roomAdjacency[currentRoom];
                 string nextRoom = neighbors[Random.Range(0, neighbors.Length)];
-                Debug.Log($"Resident wandering from {currentRoom} to neighbor {nextRoom}");
                 MoveToRoom(nextRoom);
             }
         }
     }
 
     /// <summary>
-    /// Called when a GOAP plan is completed or aborted.
-    /// Resumes wandering if not currently scared.
+    /// Resumes wandering after a plan (such as fleeing) is completed.
     /// </summary>
     protected override void OnPlanComplete()
     {
-        if (!isScared) StartAdjacentWander();
+        if (!isScared)
+        {
+            StartAdjacentWander();
+        }
     }
 
     /// <summary>
-    /// Triggers the scared state of the resident, causing them to flee from the ghost.
+    /// Triggers the scared state, causing the resident to flee to a safe room.
     /// </summary>
-    /// <param name="ghostTransform">The transform of the ghost that caused the scare.</param>
+    /// <param name="ghostTransform">The transform of the ghost causing the scare.</param>
     public void TriggerScared(Transform ghostTransform)
     {
         isScared = true;
-        if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
+
+        if (wanderCoroutine != null)
+        {
+            StopCoroutine(wanderCoroutine);
+        }
+
         Agent.Stop();
 
         string bestRoom = roomIDs[0];
         float maxDistance = 0;
 
+        // Evaluate all rooms to find the safest one (furthest from the ghost, relatively close to the resident)
         foreach (string roomId in roomIDs)
         {
             GameObject room = GameObject.Find("POI_" + roomId);
@@ -76,9 +91,14 @@ public class ResidentController : GoapController
             {
                 float distGhostToRoom = GetWalkableDistance(ghostTransform.position, room.transform.position);
                 float distResidentToRoom = GetWalkableDistance(transform.position, room.transform.position);
-                if (distGhostToRoom == float.MaxValue || distResidentToRoom == float.MaxValue) continue;
 
-                float roomScore = distGhostToRoom - (distResidentToRoom * 0.5f); 
+                if (distGhostToRoom == float.MaxValue || distResidentToRoom == float.MaxValue)
+                {
+                    continue;
+                }
+
+                // Heuristic for "safety": far from ghost, but reachable for the resident
+                float roomScore = distGhostToRoom - (distResidentToRoom * 0.5f);
                 if (roomScore > maxDistance)
                 {
                     maxDistance = roomScore;
@@ -97,11 +117,12 @@ public class ResidentController : GoapController
             Agent.Flee(ghostTransform, clear: true);
         }
 
+        // Recover from being scared after a delay
         Invoke(nameof(StopBeingScared), 8f);
     }
 
     /// <summary>
-    /// Resets the scared state and resumes normal wandering.
+    /// Resets the scared state and resumes normal behavior.
     /// </summary>
     private void StopBeingScared()
     {
@@ -109,20 +130,23 @@ public class ResidentController : GoapController
     }
 
     /// <summary>
-    /// Calculates the walking distance between two points on the NavMesh.
+    /// Calculates the actual walking distance between two points using the NavMesh.
     /// </summary>
-    /// <param name="start">The starting position.</param>
-    /// <param name="target">The target position.</param>
-    /// <returns>The calculated distance, or float.MaxValue if no path exists.</returns>
+    /// <param name="start">Starting position.</param>
+    /// <param name="target">Target position.</param>
+    /// <returns>The path distance, or float.MaxValue if no path is found.</returns>
     private float GetWalkableDistance(Vector3 start, Vector3 target)
     {
         UnityEngine.AI.NavMeshPath path = new UnityEngine.AI.NavMeshPath();
         if (UnityEngine.AI.NavMesh.CalculatePath(start, target, UnityEngine.AI.NavMesh.AllAreas, path))
         {
             float distance = 0.0f;
-            for (int i = 0; i < path.corners.Length - 1; i++) distance += Vector3.Distance(path.corners[i], path.corners[i + 1]);
+            for (int i = 0; i < path.corners.Length - 1; i++)
+            {
+                distance += Vector3.Distance(path.corners[i], path.corners[i + 1]);
+            }
             return distance;
         }
-        return float.MaxValue; 
+        return float.MaxValue;
     }
 }
