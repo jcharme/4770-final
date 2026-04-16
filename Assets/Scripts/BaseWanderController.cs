@@ -20,12 +20,13 @@ public abstract class BaseWanderController : KaijuController
         
         if (target != null)
         {
-            Agent.PathFollow(target.transform.position);
+            Agent.PathFollow(target.transform.position, clear: true);
+            Agent.ObstacleAvoidance(clear: false);
         }
         else
         {
-            Agent.ObstacleAvoidance();
             Agent.Wander(clear: true);
+            Agent.ObstacleAvoidance(clear: false);
         }
     }
 

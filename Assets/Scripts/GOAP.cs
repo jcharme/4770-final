@@ -160,8 +160,16 @@ public class GOAP : BaseWanderController
         GameObject target = GameObject.Find("POI_" + roomName);
         if (target != null)
         {
-            context.Agent.PathFollow(target.transform.position);
-            while (Vector3.Distance(context.Agent.transform.position, target.transform.position) > 1.5f) yield return null;
+            context.Agent.PathFollow(target.transform.position, clear: true);
+            context.Agent.ObstacleAvoidance(clear: false);
+        
+            float timeout = 15f; // Max 15 seconds to reach a room
+            while (Vector3.Distance(context.Agent.transform.position, target.transform.position) > 1.5f && timeout > 0) 
+            {
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+        
             context.Agent.Stop();
         }
     }
@@ -171,8 +179,16 @@ public class GOAP : BaseWanderController
     private IEnumerator Action_Chase(GOAP context)
     {
         if (context.targetVictim == null) yield break;
-        context.Agent.PathFollow(context.targetVictim);
-        while (Vector3.Distance(context.transform.position, context.targetVictim.position) > 2.0f) yield return null;
+        context.Agent.PathFollow(context.targetVictim, clear: true);
+        context.Agent.ObstacleAvoidance(clear: false);
+        float timeout = 20f;
+        while (context.targetVictim != null && 
+               Vector3.Distance(context.transform.position, context.targetVictim.position) > 2.0f && 
+               timeout > 0)
+        {
+            timeout -= Time.deltaTime;
+            yield return null;
+        }
         context.Agent.Stop();
     }
 

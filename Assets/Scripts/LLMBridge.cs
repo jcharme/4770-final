@@ -263,7 +263,8 @@ public class LLMBridge : MonoBehaviour
                 GameObject waypoint = GameObject.Find("POI_" + targetRoom);
                 if (waypoint != null)
                 {
-                    ghostAgent.PathFollow(waypoint.transform.position);
+                    ghostAgent.PathFollow(waypoint.transform.position, clear: true);
+                    ghostAgent.ObstacleAvoidance(clear: false);
                 }
             }
         }
