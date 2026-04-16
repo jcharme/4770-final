@@ -2359,32 +2359,51 @@ MonoBehaviour:
   agent: {fileID: 1279128583}
   floorLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 1024
   roomMappings:
   - roomID: Entrance
-    floorObjects: []
+    floorObjects:
+    - {fileID: 990124100}
   - roomID: Hall-East
-    floorObjects: []
+    floorObjects:
+    - {fileID: 992184807}
+    - {fileID: 1515341084}
   - roomID: Dining
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1743295521}
+    - {fileID: 794460516}
   - roomID: Kitchen
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1768816812}
   - roomID: Corridor
-    floorObjects: []
+    floorObjects:
+    - {fileID: 111217315}
+    - {fileID: 1002686806}
+    - {fileID: 1785096340}
+    - {fileID: 544348319}
   - roomID: Library
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1296524682}
   - roomID: Hall-West
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1869824643}
+    - {fileID: 61776796}
+    - {fileID: 1993189704}
   - roomID: Bathroom-North
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1313973505}
   - roomID: Bedroom-Large
-    floorObjects: []
+    floorObjects:
+    - {fileID: 693071625}
   - roomID: Bathroom-South
-    floorObjects: []
+    floorObjects:
+    - {fileID: 2033506531}
   - roomID: Bedroom-Small-North
-    floorObjects: []
+    floorObjects:
+    - {fileID: 2091655071}
   - roomID: Bedroom-Small-South
-    floorObjects: []
+    floorObjects:
+    - {fileID: 116822436}
 --- !u!114 &1279128583
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2523,15 +2542,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 100008, guid: b44f3940c4940544a8c2c6aee5fa086f,
         type: 3}
       insertIndex: -1
+      addedObject: {fileID: 1279128582}
+    - targetCorrespondingSourceObject: {fileID: 100008, guid: b44f3940c4940544a8c2c6aee5fa086f,
+        type: 3}
+      insertIndex: -1
       addedObject: {fileID: 1279128584}
     - targetCorrespondingSourceObject: {fileID: 100008, guid: b44f3940c4940544a8c2c6aee5fa086f,
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1279128583}
-    - targetCorrespondingSourceObject: {fileID: 100008, guid: b44f3940c4940544a8c2c6aee5fa086f,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1279128582}
     - targetCorrespondingSourceObject: {fileID: 100008, guid: b44f3940c4940544a8c2c6aee5fa086f,
         type: 3}
       insertIndex: -1
@@ -2607,15 +2626,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4d7b34bc56da58746ab5ca5a13fe1685,
         type: 3}
       insertIndex: -1
+      addedObject: {fileID: 1607196381}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4d7b34bc56da58746ab5ca5a13fe1685,
+        type: 3}
+      insertIndex: -1
       addedObject: {fileID: 1607196383}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4d7b34bc56da58746ab5ca5a13fe1685,
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1607196382}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4d7b34bc56da58746ab5ca5a13fe1685,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1607196381}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4d7b34bc56da58746ab5ca5a13fe1685,
         type: 3}
       insertIndex: -1
@@ -2982,32 +3001,51 @@ MonoBehaviour:
   agent: {fileID: 1607196382}
   floorLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 1024
   roomMappings:
   - roomID: Entrance
-    floorObjects: []
+    floorObjects:
+    - {fileID: 990124100}
   - roomID: Hall-East
-    floorObjects: []
+    floorObjects:
+    - {fileID: 992184807}
+    - {fileID: 1515341084}
   - roomID: Dining
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1743295521}
+    - {fileID: 794460516}
   - roomID: Kitchen
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1768816812}
   - roomID: Corridor
-    floorObjects: []
+    floorObjects:
+    - {fileID: 111217315}
+    - {fileID: 1002686806}
+    - {fileID: 1785096340}
+    - {fileID: 544348319}
   - roomID: Library
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1296524682}
   - roomID: Hall-West
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1869824643}
+    - {fileID: 61776796}
+    - {fileID: 1993189704}
   - roomID: Bathroom-North
-    floorObjects: []
+    floorObjects:
+    - {fileID: 1313973505}
   - roomID: Bedroom-Large
-    floorObjects: []
+    floorObjects:
+    - {fileID: 693071625}
   - roomID: Bathroom-South
-    floorObjects: []
+    floorObjects:
+    - {fileID: 2033506531}
   - roomID: Bedroom-Small-North
-    floorObjects: []
+    floorObjects:
+    - {fileID: 2091655071}
   - roomID: Bedroom-Small-South
-    floorObjects: []
+    floorObjects:
+    - {fileID: 116822436}
 --- !u!114 &1607196382
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3736,9 +3774,9 @@ SceneRoots:
   - {fileID: 1260453089}
   - {fileID: 152760762}
   - {fileID: 607793716}
-  - {fileID: 658688123}
   - {fileID: 1588890678}
   - {fileID: 1863165813}
   - {fileID: 1223626659}
   - {fileID: 1330507769}
   - {fileID: 1349028985}
+  - {fileID: 658688123}
