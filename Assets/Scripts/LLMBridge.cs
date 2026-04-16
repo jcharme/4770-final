@@ -103,7 +103,8 @@ public class LLMBridge : MonoBehaviour
                        "- Identify the room by ID (e.g., 'Hall-East').\n" +
                        "- Use 'Position' and 'Features' to resolve vague requests (e.g., 'the room with the yellow rug' is Library).\n\n" +
                        "RESPONSE FORMAT:\n" +
-                       "Return ONLY a JSON object: {\"room\": \"RoomID\", \"goal\": \"GoalName\"}.";
+                       "Return ONLY a JSON object: {\"room\": \"RoomID\", \"goal\": \"GoalName\", \"target\": \"TargetName\"}.\n" +
+                       "If hunting a person, set 'target' to their name (e.g. 'Resident'). Otherwise leave it blank.";
         
         string combinedPrompt = systemPrompt + userInput;
 
@@ -180,10 +181,47 @@ public class LLMBridge : MonoBehaviour
     {
         GhostCommand cmd = JsonUtility.FromJson<GhostCommand>(intentJSON);
         Dictionary<string, bool> desiredGoal = new Dictionary<string, bool>();
-
-        if (cmd.goal.Contains("ScarePlayer"))
+        
+        // find ghost brain?
+        GOAP ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GOAP>() : null;
+        if (ghostAI == null)
         {
-            desiredGoal.Add("PlayerScared", true);
+            Debug.LogError("GOAP component not found on ghostAgent!");
+            return;
+        }
+        
+        if (cmd.goal.Contains("ScareResident"))
+        {
+            desiredGoal.Add("ResidentScared", true);
+            
+            GameObject victim = null;
+            
+            // Try to find the exact target the LLM named
+            if (!string.IsNullOrEmpty(cmd.target))
+            {
+                victim = GameObject.Find(cmd.target);
+            }
+            
+            // Fallback: If LLM didn't give a name, just grab ANY ResidentController in the scene
+            if (victim == null)
+            {
+                ResidentController anyResident = FindFirstObjectByType<ResidentController>();
+                if (anyResident != null) 
+                {
+                    victim = anyResident.gameObject;
+                }
+            }
+            
+            // Lock onto the victim!
+            if (victim != null)
+            {
+                ghostAI.targetVictim = victim.transform;
+            }
+            else
+            {
+                Debug.LogError("LLM requested a scare, but could not find a Resident in the scene!");
+                return; // Abort planning so we don't crash
+            }
         }
         else if (cmd.goal.Contains("HideInKitchen"))
         {
@@ -191,17 +229,10 @@ public class LLMBridge : MonoBehaviour
             desiredGoal.Add("IsHidden", true);
         }
 
-        if (desiredGoal.Count > 0 && ghostAgent != null)
+        // Request the plan
+        if (desiredGoal.Count > 0)
         {
-            GOAP ghostAI = ghostAgent.GetComponent<GOAP>();
-            if (ghostAI != null)
-            {
-                ghostAI.RequestPlan(desiredGoal);
-            }
-            else
-            {
-                Debug.LogError("GOAP component not found on ghostAgent!");
-            }
+            ghostAI.RequestPlan(desiredGoal);
         }
         else if (!string.IsNullOrEmpty(cmd.room))
         {
@@ -245,6 +276,7 @@ public class GhostCommand
 {
     public string room;
     public string goal;
+    public string target;
 }
 [Serializable]
 public class GeminiResponse

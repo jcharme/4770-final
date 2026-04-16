@@ -1,5 +1,4 @@
 using UnityEngine;
-// using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,50 +6,30 @@ using KaijuSolutions.Agents;
 using KaijuSolutions.Agents.Movement;
 using KaijuSolutions.Agents.Sensors;
 
-public class GOAP : KaijuController
+public class GOAP : BaseWanderController
 {
-    private bool isMoving = false;
-
     private KaijuEverythingVisionSensor visionSensor;
+    
+    public Transform targetVictim; 
+    private bool isChasing = false;
     
     // World State
     public Dictionary<string, bool> worldState = new Dictionary<string, bool>()
     {
-        // { "InKitchen", false },
-        // { "InLibrary", false },
-        // { "InHallway", false },
         { "IsHidden", false },
-        { "PlayerScared", false },
-        { "PlayerInSight", false },  
+        { "ResidentScared", false },
+        { "ResidentInSight", false },  
+        { "NearVictim", false },
     };
     
-    // Available Actions
     private List<GoapAction> availableActions = new List<GoapAction>();
-    
-    // Current Plan
     private Queue<GoapAction> currentPlan = new Queue<GoapAction>();
-    
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+
     protected override void OnEnabled()
     {
         InitializeActions();
+        StartWandering();
     }
-
-    private void Start()
-    {
-        InitializeActions();
-    }
-
-    private void OnEnable()
-    {
-        InitializeActions();
-    }
-    
-    private string[] roomIDs = {
-        "Entrance", "Hall-East", "Dining", "Kitchen", "Corridor", 
-        "Library", "Hall-West", "Bathroom-North", "Bedroom-Large", 
-        "Bathroom-South", "Bedroom-Small-North", "Bedroom-Small-South"
-    };
 
     private bool initialized = false;
     private void InitializeActions()
@@ -59,28 +38,16 @@ public class GOAP : KaijuController
         initialized = true;
 
         visionSensor = Agent.GetSensor<KaijuEverythingVisionSensor>();
-        if (visionSensor != null)
-        {
-            visionSensor.automatic = true;
-        }
+        if (visionSensor != null) visionSensor.automatic = true;
         
         foreach (string roomId in roomIDs)
         {
             string stateKey = "In" + roomId;
-
-            // NEW: Add the room to worldState so the Planner knows it exists!
-            if (!worldState.ContainsKey(stateKey)) {
-                worldState.Add(stateKey, false);
-            }
+            if (!worldState.ContainsKey(stateKey)) worldState.Add(stateKey, false);
 
             string actionName = "MoveTo" + roomId;
             var effects = new Dictionary<string, bool>();
-        
-            // This loop is good—it ensures only ONE room is true at a time
-            foreach (string otherId in roomIDs)
-            {
-                effects.Add("In" + otherId, (otherId == roomId)); 
-            }
+            foreach (string otherId in roomIDs) effects.Add("In" + otherId, (otherId == roomId));
 
             availableActions.Add(new GoapAction(
                 name: actionName,
@@ -91,254 +58,133 @@ public class GOAP : KaijuController
             ));
         }
         
-        // // Define Actions
-        // availableActions.Add(new GoapAction("MoveToKitchen",
-        //     cost: 1f,
-        //     preReqs: new Dictionary<string, bool>(), 
-        //     effects:  new Dictionary<string, bool>() {{"InKitchen", true}, {"InLibrary", false}, {"InHallway", false}},
-        //     actionLogic: (context) => Action_MoveTo(context, "Kitchen")
-        //     ));
-        //
-        // availableActions.Add(new GoapAction("MoveToLibrary",
-        //     cost: 1f,
-        //     preReqs: new Dictionary<string, bool>(), 
-        //     effects:  new Dictionary<string, bool>() {{"InLibrary", true}, {"InKitchen", false}, {"InHallway", false}},
-        //     actionLogic: (context) => Action_MoveTo(context, "Library")
-        //     ));
-        //
-        // availableActions.Add(new GoapAction("MoveToHallway",
-        //     cost: 1f,
-        //     preReqs: new Dictionary<string, bool>(), 
-        //     effects:  new Dictionary<string, bool>() {{"InHallway", true}, {"InKitchen", false}, {"InLibrary", false}},
-        //     actionLogic: (context) => Action_MoveTo(context, "Hallway")
-        //     ));
-        
-        availableActions.Add(new GoapAction("HideInShadows",
-            cost: 1f,
-            preReqs: new Dictionary<string, bool>() {{"InKitchen", true}}, //must be in kitchen
-            effects:  new Dictionary<string, bool>() {{"IsHidden", true}},
-            actionLogic: Action_Hide
-        ));
-        
-        availableActions.Add(new GoapAction("JumpScare", 
-            cost: 1f,
-            preReqs: new Dictionary<string, bool>() { { "InKitchen", true }, { "IsHidden", true } }, // Must be hidden in the kitchen
-            effects: new Dictionary<string, bool>() { { "PlayerScared", true } },
-            actionLogic: Action_JumpScare
-        ));
-    }
-    
-    // OnSense callback to react to the environment automatically
-    protected override void OnSense(KaijuSensor sensor)
-    {
-        // If our vision sensor sees something
-        if (sensor == visionSensor && visionSensor.HasObserved)
-        {
-            // You can loop through observed objects to see if it's the player, then update state
-            worldState["PlayerInSight"] = true;
-        }
-        else if (sensor == visionSensor && !visionSensor.HasObserved)
-        {
-            worldState["PlayerInSight"] = false;
-        }
+        availableActions.Add(new GoapAction("HideInShadows", 1f, new Dictionary<string, bool>() {{"InKitchen", true}}, new Dictionary<string, bool>() {{"IsHidden", true}}, Action_Hide));
+        availableActions.Add(new GoapAction("ChaseVictim", 1f, new Dictionary<string, bool>(), new Dictionary<string, bool>() {{"NearVictim", true}}, Action_Chase));
+        availableActions.Add(new GoapAction("ScareVictim", 1f, new Dictionary<string, bool>() { { "NearVictim", true } }, new Dictionary<string, bool>() { { "ResidentScared", true } }, Action_Scare));
     }
     
     protected override void OnMovementStopped(KaijuMovement movement)
     {
-        isMoving = false;
+        if (!isChasing)
+        {
+            if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
+            wanderCoroutine = StartCoroutine(WaitThenWander());
+        }
+    }
+
+    protected override void StartWandering()
+    {
+        isChasing = false;
+        base.StartWandering();
+    }
+
+    protected override void OnSense(KaijuSensor sensor)
+    {
+        if (sensor == visionSensor) worldState["ResidentInSight"] = visionSensor.HasObserved;
     }
     
-    // Planner
     public void RequestPlan(Dictionary<string, bool> goalState)
     {
-        Debug.Log("GOAP (A*): Calculating plan");
         currentPlan.Clear();
-        
-        // Open list: paths currently exploring
         List<GoapNode> openList = new List<GoapNode>();
-        // Closed list: paths already checked
         List<GoapNode> closedList = new List<GoapNode>();
         
-        // Start with current world state
         GoapNode startNode = new GoapNode(null, 0, worldState, null);
         startNode.heuristicCost = CalculateHeuristic(worldState, goalState);
         openList.Add(startNode);
         
         GoapNode cheapestNode = null;
-
         while (openList.Count > 0)
         {
-            // Get node with lowest total (F) cost
             openList.Sort((a, b) => a.TotalCost.CompareTo(b.TotalCost));
             GoapNode currentNode = openList[0];
-            
             openList.Remove(currentNode);
             closedList.Add(currentNode);
             
-            // Check if node meets our goal
-            if (IsGoalMet(currentNode.state, goalState))
-            {
-                cheapestNode = currentNode;
-                break;
-            }
+            if (IsGoalMet(currentNode.state, goalState)) { cheapestNode = currentNode; break; }
             
-            // if not at goal, try all actions from this state
             foreach (GoapAction action in availableActions)
             {
-                // Can we perform this action?
                 if (ArePreconditionsMet(action.preconditions, currentNode.state))
                 {
-                    // create new state based on action's effects
                     Dictionary<string, bool> newState = new Dictionary<string, bool>(currentNode.state);
                     foreach (var effect in action.effects) newState[effect.Key] = effect.Value;
                     
-                    // Create a new node for this state
                     float gCost = currentNode.runningCost + action.cost;
                     GoapNode neighbourNode = new GoapNode(currentNode, gCost, newState, action);
                     neighbourNode.heuristicCost = CalculateHeuristic(newState, goalState);
                     
-                    // if we already checked that state and found cheaper way, skip it
                     if (closedList.Exists(n => StatesMatch(n.state, newState) && n.runningCost <= gCost)) continue;
-                    
-                    // if it's already in open list with cheaper way, skip it
                     GoapNode existingOpen = openList.FirstOrDefault(n => StatesMatch(n.state, newState));
-                    if (existingOpen != null)
-                    {
-                        if (existingOpen.runningCost > gCost)
-                        {
-                            openList.Remove(existingOpen);
-                            openList.Add(neighbourNode);
-                        }
-                    }
-                    else
-                    {
-                        // add to open list to be explored
-                        openList.Add(neighbourNode);
-                    }
+                    if (existingOpen != null) { if (existingOpen.runningCost > gCost) { openList.Remove(existingOpen); openList.Add(neighbourNode); } }
+                    else openList.Add(neighbourNode);
                 }
             }
         }
         
-        // Trace best path backward to build queue
         if (cheapestNode != null)
         {
             List<GoapAction> actionPath = new List<GoapAction>();
             GoapNode node = cheapestNode;
-
-            while (node.action != null)
-            {
-                actionPath.Add(node.action);
-                node = node.parent;
-            }
-            
+            while (node.action != null) { actionPath.Add(node.action); node = node.parent; }
             actionPath.Reverse();
             foreach (var action in actionPath) currentPlan.Enqueue(action);
-            
-            Debug.Log($"GOAP (A*): Optimal plan found with {currentPlan.Count} steps");
+
+            isChasing = true;
+            if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
+            Agent.Stop();
             StopAllCoroutines();
             StartCoroutine(ExecutePlan());
         }
-
-        else
-        {
-            Debug.LogError("GOAP (A*): Plan failed. No valid sequence could reach the goal.");
-        }
     }
     
-    // Checks if all preconditions are true in the current state
-    private bool ArePreconditionsMet(Dictionary<string, bool> preconditions, Dictionary<string, bool> state)
-    {
-        foreach (var prereq in preconditions)
-        {
-            if (!state.ContainsKey(prereq.Key) || state[prereq.Key] != prereq.Value) return false;
-        }
-        return true;
-    }
+    private bool ArePreconditionsMet(Dictionary<string, bool> pre, Dictionary<string, bool> st) { foreach (var p in pre) if (!st.ContainsKey(p.Key) || st[p.Key] != p.Value) return false; return true; }
+    private bool IsGoalMet(Dictionary<string, bool> st, Dictionary<string, bool> goal) { foreach (var g in goal) if (!st.ContainsKey(g.Key) || st[g.Key] != g.Value) return false; return true; }
+    private float CalculateHeuristic(Dictionary<string, bool> st, Dictionary<string, bool> goal) { float m = 0; foreach (var g in goal) if (!st.ContainsKey(g.Key) || st[g.Key] != g.Value) m++; return m; }
+    private bool StatesMatch(Dictionary<string, bool> a, Dictionary<string, bool> b) { if (a.Count != b.Count) return false; foreach (var s in a) if (!b.ContainsKey(s.Key) || b[s.Key] != s.Value) return false; return true; }
     
-    // Checks if current state satisfies all goal conditions
-    private bool IsGoalMet(Dictionary<string, bool> state, Dictionary<string, bool> goalState)
-    {
-        foreach (var condition in goalState)
-        {
-            if (!state.ContainsKey(condition.Key) || state[condition.Key] != condition.Value) return false;
-        }
-        return true;
-    }
-    
-    // H cost (Hamming Distance) : how many goals are we still missing?
-    private float CalculateHeuristic(Dictionary<string, bool> state, Dictionary<string, bool> goalState)
-    {
-        float missingGoals = 0;
-        foreach (var condition in goalState)
-        {
-            if (!state.ContainsKey(condition.Key) ||  state[condition.Key] != condition.Value) missingGoals++;
-        }
-
-        return missingGoals;
-    }
-    
-    // Check if two states are identical
-    private bool StatesMatch(Dictionary<string, bool> stateA, Dictionary<string, bool> stateB)
-    {
-        if (stateA.Count !=  stateB.Count) return false;
-        foreach (var s in stateA)
-        {
-           if (!stateB.ContainsKey(s.Key) || stateB[s.Key] != s.Value) return false; 
-        }
-
-        return true;
-    }
-    
-    // Execution
     private IEnumerator ExecutePlan()
     {
         while (currentPlan.Count > 0)
         {
             GoapAction currentAction = currentPlan.Dequeue();
-            Debug.Log($"GOAP (A*) Executing: {currentAction.name}");
             yield return StartCoroutine(currentAction.logicCoroutine(this));
-            
-            // Apply the effects to the world state once complete
-            foreach(var effect in currentAction.effects) worldState[effect.Key] =  effect.Value;
+            foreach(var effect in currentAction.effects) worldState[effect.Key] = effect.Value;
         }
-        Debug.Log("GOAP (A*): Finished");
+        worldState["NearVictim"] = false; 
+        StartWandering();
     }
 
-    // Action Coroutines
     private IEnumerator Action_MoveTo(GOAP context, string roomName)
     {
         GameObject target = GameObject.Find("POI_" + roomName);
         if (target != null)
         {
             context.Agent.PathFollow(target.transform.position);
-            
-            while (Vector3.Distance(context.Agent.transform.position, target.transform.position) > 1.5f) 
-            {
-                yield return null; 
-            }
-            
+            while (Vector3.Distance(context.Agent.transform.position, target.transform.position) > 1.5f) yield return null;
             context.Agent.Stop();
         }
-        else
-        {
-            Debug.LogError($"GOAP: Action_MoveTo failed because POI_{roomName} was not found.");
-        }
     }
 
-    private IEnumerator Action_Hide(GOAP context)
+    private IEnumerator Action_Hide(GOAP context) { yield return new WaitForSeconds(1.5f); }
+    
+    private IEnumerator Action_Chase(GOAP context)
     {
-        Debug.Log("*Ghost turns invisible*");
-        yield return new WaitForSeconds(1.5f);
+        if (context.targetVictim == null) yield break;
+        context.Agent.PathFollow(context.targetVictim);
+        while (Vector3.Distance(context.transform.position, context.targetVictim.position) > 2.0f) yield return null;
+        context.Agent.Stop();
     }
 
-    private IEnumerator Action_JumpScare(GOAP context)
+    private IEnumerator Action_Scare(GOAP context)
     {
-        Debug.Log("BOO!");
+        if (context.targetVictim == null) yield break;
+        ResidentController victim = context.targetVictim.GetComponent<ResidentController>();
+        if (victim != null) victim.TriggerScared(context.transform);
         yield return new WaitForSeconds(2.0f);
     }
 }
 
-// Action Data Structure
 public class GoapAction
 {
     public string name;
@@ -347,34 +193,22 @@ public class GoapAction
     public Dictionary<string, bool> effects;
     public System.Func<GOAP, IEnumerator> logicCoroutine;
 
-    public GoapAction(string name, float cost, Dictionary<string, bool> preReqs, Dictionary<string, bool> effects,
-        System.Func<GOAP, IEnumerator> actionLogic)
+    public GoapAction(string name, float cost, Dictionary<string, bool> preReqs, Dictionary<string, bool> effects, System.Func<GOAP, IEnumerator> actionLogic)
     {
-        this.name = name;
-        this.cost = cost;
-        this.preconditions = preReqs;
-        this.effects = effects;
-        this.logicCoroutine = actionLogic;
+        this.name = name; this.cost = cost; this.preconditions = preReqs; this.effects = effects; this.logicCoroutine = actionLogic;
     }
 }
 
-// A* Node Class
 public class GoapNode
 {
-    public GoapNode parent; // The node that came before this one
-    public float runningCost; // G-Cost: Cost of all actions taken so far
-    public float heuristicCost; // H-Cost: Estimated cost to reach the goal
-    public Dictionary<string, bool> state; // The  world state at this step
-    public GoapAction action; // The action that created this state
-
-    // F-Cost: Total score for this node (Lower is better)
+    public GoapNode parent; 
+    public float runningCost; 
+    public float heuristicCost; 
+    public Dictionary<string, bool> state; 
+    public GoapAction action; 
     public float TotalCost => runningCost + heuristicCost;
-
     public GoapNode(GoapNode parent, float runningCost, Dictionary<string, bool> state, GoapAction action)
     {
-        this.parent = parent;
-        this.runningCost = runningCost;
-        this.state = new Dictionary<string, bool>(state); // Copy the state
-        this.action = action;
+        this.parent = parent; this.runningCost = runningCost; this.state = new Dictionary<string, bool>(state); this.action = action;
     }
 }

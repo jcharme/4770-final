@@ -3275,7 +3275,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 10
+  m_Speed: 3
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 5
@@ -3299,7 +3299,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a490d08f15cb4251a3738b991b167bf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ca.kaijusolutions.agents::KaijuSolutions.Agents.KaijuNavigationAgent
-  moveSpeed: 10
+  moveSpeed: 5
   moveAcceleration: 8
   lookSpeed: 5
   autoRotate: 1
@@ -3347,7 +3347,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GOAP
   agent: {fileID: 2089680638}
   targetVictim: {fileID: 0}
-  isChasing: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
