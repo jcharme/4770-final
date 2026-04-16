@@ -6,8 +6,44 @@ using KaijuSolutions.Agents;
 using KaijuSolutions.Agents.Movement;
 using KaijuSolutions.Agents.Sensors;
 
-public class GOAP : BaseWanderController
+public class GoapController : KaijuController
 {
+    /// <summary>
+    /// List of roomIDs each corresponding to a POI Game Object.
+    /// </summary>
+    protected string[] roomIDs = {
+        "Entrance", "Hall-East", "Dining", "Kitchen", "Corridor", 
+        "Library", "Hall-West", "Bathroom-North", "Bedroom-Large", 
+        "Bathroom-South", "Bedroom-Small-North", "Bedroom-Small-South"
+    };
+
+    protected Coroutine wanderCoroutine;
+
+    protected void StartWandering()
+    {
+        // isChasing = false; // need to make virtual and stuff later for this to work good. inherit in children
+
+        string randomRoom = roomIDs[Random.Range(0, roomIDs.Length)];
+        GameObject target = GameObject.Find("POI_" + randomRoom);
+        
+        if (target != null)
+        {
+            Agent.PathFollow(target.transform.position, clear: true);
+            Agent.ObstacleAvoidance(clear: false);
+        }
+        else
+        {
+            Agent.Wander(clear: true);
+            Agent.ObstacleAvoidance(clear: false);
+        }
+    }
+
+    protected IEnumerator WaitThenWander()
+    {
+        yield return new WaitForSeconds(Random.Range(5f, 10f));
+        StartWandering();
+    }
+    
     private KaijuEverythingVisionSensor visionSensor;
     
     public Transform targetVictim; 
@@ -82,13 +118,6 @@ public class GOAP : BaseWanderController
             if (wanderCoroutine != null) StopCoroutine(wanderCoroutine);
             wanderCoroutine = StartCoroutine(WaitThenWander());
         }
-    }
-
-    protected override void StartWandering()
-    {
-        Debug.Log("<color=cyan>GOAP:</color> Starting wandering state.");
-        isChasing = false;
-        base.StartWandering();
     }
 
     protected override void OnSense(KaijuSensor sensor)
@@ -183,7 +212,7 @@ public class GOAP : BaseWanderController
         StartWandering();
     }
 
-    private IEnumerator Action_MoveTo(GOAP context, string roomName)
+    private IEnumerator Action_MoveTo(GoapController context, string roomName)
     {
         GameObject target = GameObject.Find("POI_" + roomName);
         if (target != null)
@@ -202,9 +231,9 @@ public class GOAP : BaseWanderController
         }
     }
 
-    private IEnumerator Action_Hide(GOAP context) { yield return new WaitForSeconds(1.5f); }
+    private IEnumerator Action_Hide(GoapController context) { yield return new WaitForSeconds(1.5f); }
     
-    private IEnumerator Action_Chase(GOAP context)
+    private IEnumerator Action_Chase(GoapController context)
     {
         if (context.targetVictim == null) yield break;
         context.Agent.PathFollow(context.targetVictim, clear: true);
@@ -220,7 +249,7 @@ public class GOAP : BaseWanderController
         context.Agent.Stop();
     }
 
-    private IEnumerator Action_Scare(GOAP context)
+    private IEnumerator Action_Scare(GoapController context)
     {
         if (context.targetVictim == null) yield break;
         ResidentController victim = context.targetVictim.GetComponent<ResidentController>();
@@ -235,9 +264,9 @@ public class GoapAction
     public float cost;
     public Dictionary<string, bool> preconditions;
     public Dictionary<string, bool> effects;
-    public System.Func<GOAP, IEnumerator> logicCoroutine;
+    public System.Func<GoapController, IEnumerator> logicCoroutine;
 
-    public GoapAction(string name, float cost, Dictionary<string, bool> preReqs, Dictionary<string, bool> effects, System.Func<GOAP, IEnumerator> actionLogic)
+    public GoapAction(string name, float cost, Dictionary<string, bool> preReqs, Dictionary<string, bool> effects, System.Func<GoapController, IEnumerator> actionLogic)
     {
         this.name = name; this.cost = cost; this.preconditions = preReqs; this.effects = effects; this.logicCoroutine = actionLogic;
     }

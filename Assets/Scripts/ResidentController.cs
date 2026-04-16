@@ -5,7 +5,7 @@ using KaijuSolutions.Agents.Actuators;
 using KaijuSolutions.Agents.Movement;
 using KaijuSolutions.Agents.Sensors;
 
-public class ResidentController : BaseWanderController
+public class ResidentController : GoapController
 {
     private bool isScared = false;
     
@@ -30,11 +30,11 @@ public class ResidentController : BaseWanderController
         }
     }
 
-    protected override void StartWandering()
-    {
-        isScared = false;
-        base.StartWandering();
-    }
+    // protected void StartWandering()
+    // {
+    //     isScared = false;
+    //     base.StartWandering();
+    // }
 
     private void StopBeingScared()
     {

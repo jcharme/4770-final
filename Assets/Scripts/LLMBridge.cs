@@ -196,7 +196,7 @@ public class LLMBridge : MonoBehaviour
         Dictionary<string, bool> desiredGoal = new Dictionary<string, bool>();
         
         // find ghost brain?
-        GOAP ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GOAP>() : null;
+        GoapController ghostAI = ghostAgent != null ? ghostAgent.GetComponent<GoapController>() : null;
         if (ghostAI == null)
         {
             Debug.LogError("GOAP component not found on ghostAgent!");
@@ -267,7 +267,7 @@ public class LLMBridge : MonoBehaviour
         
         if (ghostAgent != null)
         {
-            GOAP ghostAI = ghostAgent.GetComponent<GOAP>();
+            GoapController ghostAI = ghostAgent.GetComponent<GoapController>();
             if (ghostAI != null)
             {
                 // Request a plan to be in the target room
