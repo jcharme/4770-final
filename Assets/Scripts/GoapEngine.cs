@@ -10,6 +10,14 @@ public class GoapAction
     public Dictionary<string, object> effects;
     public System.Func<GoapController, IEnumerator> logicCoroutine;
 
+    /// <summary>
+    /// Initializes a new instance of the GoapAction class.
+    /// </summary>
+    /// <param name="name">The name of the action.</param>
+    /// <param name="cost">The cost of performing this action.</param>
+    /// <param name="preReqs">The preconditions that must be met to perform this action.</param>
+    /// <param name="effects">The effects that this action has on the world state.</param>
+    /// <param name="actionLogic">The logic coroutine to execute when performing this action.</param>
     public GoapAction(string name, float cost, Dictionary<string, object> preReqs, Dictionary<string, object> effects, System.Func<GoapController, IEnumerator> actionLogic)
     {
         this.name = name; this.cost = cost; this.preconditions = preReqs; this.effects = effects; this.logicCoroutine = actionLogic;
@@ -25,6 +33,13 @@ public class GoapNode
     public GoapAction action; 
     public float TotalCost => runningCost + heuristicCost;
 
+    /// <summary>
+    /// Initializes a new instance of the GoapNode class.
+    /// </summary>
+    /// <param name="parent">The parent node in the plan.</param>
+    /// <param name="runningCost">The cumulative cost from the start node to this node.</param>
+    /// <param name="state">The world state at this node.</param>
+    /// <param name="action">The action taken to reach this node.</param>
     public GoapNode(GoapNode parent, float runningCost, Dictionary<string, object> state, GoapAction action)
     {
         this.parent = parent; 
@@ -41,6 +56,13 @@ public class GoapNode
 
 public static class GoapEngine
 {
+    /// <summary>
+    /// Generates a plan (sequence of actions) to transition from the start state to the goal state.
+    /// </summary>
+    /// <param name="start">The initial world state.</param>
+    /// <param name="goal">The desired goal state.</param>
+    /// <param name="actions">The list of available actions.</param>
+    /// <returns>A queue of actions representing the plan, or null if no plan is found.</returns>
     public static Queue<GoapAction> Plan(Dictionary<string, object> start, Dictionary<string, object> goal, List<GoapAction> actions)
     {
         List<GoapNode> openList = new List<GoapNode>();
@@ -83,6 +105,11 @@ public static class GoapEngine
         return null; // No path found
     }
 
+    /// <summary>
+    /// Reconstructs the path from the goal node back to the start node.
+    /// </summary>
+    /// <param name="node">The goal node.</param>
+    /// <returns>A queue of actions in the correct order (start to goal).</returns>
     private static Queue<GoapAction> ReconstructPath(GoapNode node)
     {
         Stack<GoapAction> path = new Stack<GoapAction>();
@@ -90,9 +117,35 @@ public static class GoapEngine
         return new Queue<GoapAction>(path);
     }
 
-    // Predicate comparison using .Equals() to handle strings, ints, and bools correctly
+    /// <summary>
+    /// Checks if all preconditions of an action are met by the current state.
+    /// </summary>
+    /// <param name="pre">The action's preconditions.</param>
+    /// <param name="st">The current world state.</param>
+    /// <returns>True if all preconditions are met, false otherwise.</returns>
     private static bool ArePreconditionsMet(Dictionary<string, object> pre, Dictionary<string, object> st) => pre.All(p => st.ContainsKey(p.Key) && st[p.Key].Equals(p.Value));
+
+    /// <summary>
+    /// Checks if the current state satisfies the goal requirements.
+    /// </summary>
+    /// <param name="st">The current world state.</param>
+    /// <param name="goal">The goal state requirements.</param>
+    /// <returns>True if the goal is met, false otherwise.</returns>
     private static bool IsGoalMet(Dictionary<string, object> st, Dictionary<string, object> goal) => goal.All(g => st.ContainsKey(g.Key) && st[g.Key].Equals(g.Value));
+
+    /// <summary>
+    /// Calculates the heuristic cost (number of unmet goal conditions) for the given state.
+    /// </summary>
+    /// <param name="st">The current world state.</param>
+    /// <param name="goal">The goal state requirements.</param>
+    /// <returns>The heuristic cost.</returns>
     private static float CalculateHeuristic(Dictionary<string, object> st, Dictionary<string, object> goal) => goal.Count(g => !st.ContainsKey(g.Key) || !st[g.Key].Equals(g.Value));
+
+    /// <summary>
+    /// Compares two world states for equality.
+    /// </summary>
+    /// <param name="a">The first state.</param>
+    /// <param name="b">The second state.</param>
+    /// <returns>True if the states match exactly, false otherwise.</returns>
     private static bool StatesMatch(Dictionary<string, object> a, Dictionary<string, object> b) => a.Count == b.Count && a.All(kv => b.ContainsKey(kv.Key) && b[kv.Key].Equals(kv.Value));
 }
