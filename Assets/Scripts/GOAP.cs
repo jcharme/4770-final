@@ -21,7 +21,7 @@ public class GOAP : KaijuController
         { "InHallway", false },
         { "IsHidden", false },
         { "PlayerScared", false },
-        {"PlayerInSight", false },  
+        { "PlayerInSight", false },  
     };
     
     // Available Actions
